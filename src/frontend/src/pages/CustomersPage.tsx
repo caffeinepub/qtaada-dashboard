@@ -16,18 +16,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { customers as initialCustomers } from "@/data/mockData";
-import { Edit2, Plus, Trash2, Users } from "lucide-react";
-import { useState } from "react";
+import { useActor } from "@/hooks/useActor";
+import { Edit2, Loader2, Plus, Trash2, Users } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
-type Customer = (typeof initialCustomers)[0];
+type Customer = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  totalOrders: number;
+  totalSpent: string;
+  joinDate: string;
+};
 
-export function CustomersPage() {
-  const [items, setItems] = useState<Customer[]>(initialCustomers);
+interface CustomersPageProps {
+  isAdmin?: boolean;
+}
+
+export function CustomersPage({ isAdmin }: CustomersPageProps) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const [items, setItems] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Customer | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -36,6 +51,32 @@ export function CustomersPage() {
     totalSpent: "",
     joinDate: "",
   });
+
+  const loadCustomers = useCallback(async () => {
+    if (!actor) return;
+    try {
+      const list = await (actor as any).getCustomers();
+      setItems(
+        list.map((c: any) => ({
+          id: Number(c.id),
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          totalOrders: Number(c.totalOrders),
+          totalSpent: c.totalSpent,
+          joinDate: c.joinDate,
+        })),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [actor]);
+
+  useEffect(() => {
+    if (!actorFetching && actor) {
+      loadCustomers();
+    }
+  }, [actor, actorFetching, loadCustomers]);
 
   const filtered = items.filter(
     (c) =>
@@ -69,58 +110,68 @@ export function CustomersPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!form.name || !form.email) return;
-    if (editItem) {
-      setItems((prev) =>
-        prev.map((c) =>
-          c.id === editItem.id
-            ? {
-                ...c,
-                name: form.name,
-                email: form.email,
-                phone: form.phone,
-                totalOrders: Number(form.totalOrders),
-                totalSpent: form.totalSpent,
-                joinDate: form.joinDate,
-              }
-            : c,
-        ),
-      );
-    } else {
-      const newId = Math.max(0, ...items.map((c) => c.id)) + 1;
-      setItems((prev) => [
-        ...prev,
-        {
-          id: newId,
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          totalOrders: Number(form.totalOrders),
-          totalSpent: form.totalSpent,
-          joinDate: form.joinDate,
-        },
-      ]);
+  const handleSave = async () => {
+    if (!form.name || !form.email || !actor) return;
+    setSaving(true);
+    try {
+      if (editItem) {
+        await (actor as any).updateCustomer(
+          BigInt(editItem.id),
+          form.name,
+          form.email,
+          form.phone,
+          BigInt(form.totalOrders || "0"),
+          form.totalSpent,
+          form.joinDate,
+        );
+      } else {
+        await (actor as any).addCustomer(
+          form.name,
+          form.email,
+          form.phone,
+          BigInt(form.totalOrders || "0"),
+          form.totalSpent,
+          form.joinDate,
+        );
+      }
+      await loadCustomers();
+      setDialogOpen(false);
+    } finally {
+      setSaving(false);
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = (id: number) => {
-    setItems((prev) => prev.filter((c) => c.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!actor) return;
+    await (actor as any).deleteCustomer(BigInt(id));
+    await loadCustomers();
     setDeleteId(null);
   };
+
+  if (loading || actorFetching) {
+    return (
+      <div
+        className="flex items-center justify-center h-64"
+        data-ocid="customers.loading_state"
+      >
+        <Loader2 className="animate-spin text-muted-foreground" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-700 text-foreground">Pelanggan</h1>
-        <Button
-          onClick={openAdd}
-          className="gap-2"
-          data-ocid="customers.add_button"
-        >
-          <Plus size={16} /> Tambah Pelanggan
-        </Button>
+        {isAdmin && (
+          <Button
+            onClick={openAdd}
+            className="gap-2"
+            data-ocid="customers.add_button"
+          >
+            <Plus size={16} /> Tambah Pelanggan
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -161,9 +212,11 @@ export function CustomersPage() {
                 Total Belanja
               </TableHead>
               <TableHead className="text-muted-foreground">Bergabung</TableHead>
-              <TableHead className="text-muted-foreground text-right">
-                Aksi
-              </TableHead>
+              {isAdmin && (
+                <TableHead className="text-muted-foreground text-right">
+                  Aksi
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -191,28 +244,30 @@ export function CustomersPage() {
                 <TableCell className="text-muted-foreground text-sm">
                   {c.joinDate}
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      onClick={() => openEdit(c)}
-                      data-ocid={`customers.edit_button.${i + 1}`}
-                    >
-                      <Edit2 size={14} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => setDeleteId(c.id)}
-                      data-ocid={`customers.delete_button.${i + 1}`}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                </TableCell>
+                {isAdmin && (
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        onClick={() => openEdit(c)}
+                        data-ocid={`customers.edit_button.${i + 1}`}
+                      >
+                        <Edit2 size={14} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => setDeleteId(c.id)}
+                        data-ocid={`customers.delete_button.${i + 1}`}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -311,7 +366,12 @@ export function CustomersPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Batal
             </Button>
-            <Button onClick={handleSave}>Simpan</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <Loader2 className="animate-spin mr-2" size={14} />
+              ) : null}
+              Simpan
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

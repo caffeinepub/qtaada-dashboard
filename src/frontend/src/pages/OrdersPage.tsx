@@ -24,11 +24,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type OrderStatus, recentOrders } from "@/data/mockData";
-import { Edit2, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useActor } from "@/hooks/useActor";
+import { Edit2, Loader2, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
-type Order = (typeof recentOrders)[0];
+type OrderStatus = "Selesai" | "Diproses" | "Tertunda" | "Dibatalkan";
+
+type Order = {
+  id: string;
+  customer: string;
+  email: string;
+  date: string;
+  amount: string;
+  status: OrderStatus;
+};
 
 const statusVariant: Record<OrderStatus, string> = {
   Selesai: "bg-green-500/15 text-green-400 border-green-500/30",
@@ -45,14 +54,21 @@ const STATUS_OPTIONS: OrderStatus[] = [
   "Dibatalkan",
 ];
 
-export function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>(recentOrders);
+interface OrdersPageProps {
+  isAdmin?: boolean;
+}
+
+export function OrdersPage({ isAdmin }: OrdersPageProps) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("Semua");
   const [page, setPage] = useState(1);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     customer: "",
     email: "",
@@ -60,6 +76,31 @@ export function OrdersPage() {
     amount: "",
     status: "Diproses" as OrderStatus,
   });
+
+  const loadOrders = useCallback(async () => {
+    if (!actor) return;
+    try {
+      const list = await (actor as any).getOrders();
+      setOrders(
+        list.map((o: any) => ({
+          id: o.id,
+          customer: o.customer,
+          email: o.email,
+          date: o.date,
+          amount: o.amount,
+          status: o.status as OrderStatus,
+        })),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [actor]);
+
+  useEffect(() => {
+    if (!actorFetching && actor) {
+      loadOrders();
+    }
+  }, [actor, actorFetching, loadOrders]);
 
   const filtered = orders.filter((o) => {
     const matchSearch =
@@ -101,39 +142,67 @@ export function OrdersPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!form.customer || !form.email || !form.date || !form.amount) return;
-    if (editOrder) {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === editOrder.id ? { ...o, ...form } : o)),
-      );
-    } else {
-      const maxNum = Math.max(
-        0,
-        ...orders.map((o) => Number.parseInt(o.id.replace("#ORD-", "")) || 0),
-      );
-      const newId = `#ORD-${maxNum + 1}`;
-      setOrders((prev) => [{ id: newId, ...form }, ...prev]);
+  const handleSave = async () => {
+    if (!form.customer || !form.email || !form.date || !form.amount || !actor)
+      return;
+    setSaving(true);
+    try {
+      if (editOrder) {
+        await (actor as any).updateOrder(
+          editOrder.id,
+          form.customer,
+          form.email,
+          form.date,
+          form.amount,
+          form.status,
+        );
+      } else {
+        await (actor as any).addOrder(
+          form.customer,
+          form.email,
+          form.date,
+          form.amount,
+          form.status,
+        );
+      }
+      await loadOrders();
+      setDialogOpen(false);
+    } finally {
+      setSaving(false);
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setOrders((prev) => prev.filter((o) => o.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!actor) return;
+    await (actor as any).deleteOrder(id);
+    await loadOrders();
     setDeleteId(null);
   };
+
+  if (loading || actorFetching) {
+    return (
+      <div
+        className="flex items-center justify-center h-64"
+        data-ocid="orders.loading_state"
+      >
+        <Loader2 className="animate-spin text-muted-foreground" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-700 text-foreground">Pesanan</h1>
-        <Button
-          onClick={openAdd}
-          className="gap-2"
-          data-ocid="orders.add_button"
-        >
-          <Plus size={16} /> Tambah Pesanan
-        </Button>
+        {isAdmin && (
+          <Button
+            onClick={openAdd}
+            className="gap-2"
+            data-ocid="orders.add_button"
+          >
+            <Plus size={16} /> Tambah Pesanan
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -176,9 +245,11 @@ export function OrdersPage() {
               <TableHead className="text-muted-foreground">Tanggal</TableHead>
               <TableHead className="text-muted-foreground">Jumlah</TableHead>
               <TableHead className="text-muted-foreground">Status</TableHead>
-              <TableHead className="text-muted-foreground text-right">
-                Aksi
-              </TableHead>
+              {isAdmin && (
+                <TableHead className="text-muted-foreground text-right">
+                  Aksi
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -214,28 +285,30 @@ export function OrdersPage() {
                     {order.status}
                   </span>
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      onClick={() => openEdit(order)}
-                      data-ocid={`orders.edit_button.${i + 1}`}
-                    >
-                      <Edit2 size={14} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => setDeleteId(order.id)}
-                      data-ocid={`orders.delete_button.${i + 1}`}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                </TableCell>
+                {isAdmin && (
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        onClick={() => openEdit(order)}
+                        data-ocid={`orders.edit_button.${i + 1}`}
+                      >
+                        <Edit2 size={14} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => setDeleteId(order.id)}
+                        data-ocid={`orders.delete_button.${i + 1}`}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -355,7 +428,12 @@ export function OrdersPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Batal
             </Button>
-            <Button onClick={handleSave}>Simpan</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <Loader2 className="animate-spin mr-2" size={14} />
+              ) : null}
+              Simpan
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -9,11 +9,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { products as initialProducts } from "@/data/mockData";
-import { Edit2, Package, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useActor } from "@/hooks/useActor";
+import { Edit2, Loader2, Package, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
-type Product = (typeof initialProducts)[0];
+type Product = {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  colorHex: string;
+};
 
 const formatRp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
@@ -26,18 +33,50 @@ const COLORS = [
   "#06b6d4",
 ];
 
-export function ProductsPage() {
-  const [items, setItems] = useState<Product[]>(initialProducts);
+interface ProductsPageProps {
+  isAdmin?: boolean;
+}
+
+export function ProductsPage({ isAdmin }: ProductsPageProps) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const [items, setItems] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Product | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: "",
     category: "",
     price: "",
     stock: "",
   });
+
+  const loadProducts = useCallback(async () => {
+    if (!actor) return;
+    try {
+      const list = await (actor as any).getProducts();
+      setItems(
+        list.map((p: any) => ({
+          id: Number(p.id),
+          name: p.name,
+          category: p.category,
+          price: Number(p.price),
+          stock: Number(p.stock),
+          colorHex: p.colorHex,
+        })),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [actor]);
+
+  useEffect(() => {
+    if (!actorFetching && actor) {
+      loadProducts();
+    }
+  }, [actor, actorFetching, loadProducts]);
 
   const filtered = items.filter(
     (p) =>
@@ -62,55 +101,68 @@ export function ProductsPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!form.name || !form.category || !form.price || !form.stock) return;
-    if (editItem) {
-      setItems((prev) =>
-        prev.map((p) =>
-          p.id === editItem.id
-            ? {
-                ...p,
-                name: form.name,
-                category: form.category,
-                price: Number(form.price),
-                stock: Number(form.stock),
-              }
-            : p,
-        ),
-      );
-    } else {
-      const newId = Math.max(0, ...items.map((p) => p.id)) + 1;
-      setItems((prev) => [
-        ...prev,
-        {
-          id: newId,
-          name: form.name,
-          category: form.category,
-          price: Number(form.price),
-          stock: Number(form.stock),
-          colorHex: COLORS[newId % COLORS.length],
-        },
-      ]);
+  const handleSave = async () => {
+    if (!form.name || !form.category || !form.price || !form.stock || !actor)
+      return;
+    setSaving(true);
+    try {
+      if (editItem) {
+        await (actor as any).updateProduct(
+          BigInt(editItem.id),
+          form.name,
+          form.category,
+          BigInt(form.price),
+          BigInt(form.stock),
+          editItem.colorHex,
+        );
+      } else {
+        const newIdx = items.length;
+        await (actor as any).addProduct(
+          form.name,
+          form.category,
+          BigInt(form.price),
+          BigInt(form.stock),
+          COLORS[newIdx % COLORS.length],
+        );
+      }
+      await loadProducts();
+      setDialogOpen(false);
+    } finally {
+      setSaving(false);
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = (id: number) => {
-    setItems((prev) => prev.filter((p) => p.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!actor) return;
+    await (actor as any).deleteProduct(BigInt(id));
+    await loadProducts();
     setDeleteId(null);
   };
+
+  if (loading || actorFetching) {
+    return (
+      <div
+        className="flex items-center justify-center h-64"
+        data-ocid="products.loading_state"
+      >
+        <Loader2 className="animate-spin text-muted-foreground" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-700 text-foreground">Produk</h1>
-        <Button
-          onClick={openAdd}
-          className="gap-2"
-          data-ocid="products.open_modal_button"
-        >
-          <Plus size={16} /> Tambah Produk
-        </Button>
+        {isAdmin && (
+          <Button
+            onClick={openAdd}
+            className="gap-2"
+            data-ocid="products.open_modal_button"
+          >
+            <Plus size={16} /> Tambah Produk
+          </Button>
+        )}
       </div>
 
       <Input
@@ -166,26 +218,28 @@ export function ProductsPage() {
                   Stok: {p.stock}
                 </span>
               </div>
-              <div className="flex gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 gap-1 text-xs"
-                  onClick={() => openEdit(p)}
-                  data-ocid={`products.edit_button.${i + 1}`}
-                >
-                  <Edit2 size={12} /> Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 gap-1 text-xs text-destructive hover:text-destructive"
-                  onClick={() => setDeleteId(p.id)}
-                  data-ocid={`products.delete_button.${i + 1}`}
-                >
-                  <Trash2 size={12} /> Hapus
-                </Button>
-              </div>
+              {isAdmin && (
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1 text-xs"
+                    onClick={() => openEdit(p)}
+                    data-ocid={`products.edit_button.${i + 1}`}
+                  >
+                    <Edit2 size={12} /> Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1 text-xs text-destructive hover:text-destructive"
+                    onClick={() => setDeleteId(p.id)}
+                    data-ocid={`products.delete_button.${i + 1}`}
+                  >
+                    <Trash2 size={12} /> Hapus
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -263,7 +317,14 @@ export function ProductsPage() {
             >
               Batal
             </Button>
-            <Button onClick={handleSave} data-ocid="products.save_button">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              data-ocid="products.save_button"
+            >
+              {saving ? (
+                <Loader2 className="animate-spin mr-2" size={14} />
+              ) : null}
               Simpan
             </Button>
           </DialogFooter>

@@ -3,14 +3,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { navItems } from "@/data/mockData";
-import { Bell, ChevronDown, Search, Store } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Search, Store } from "lucide-react";
 
 interface HeaderProps {
   activeNav: string;
   onOpenStorefront?: () => void;
+  onLogout?: () => void;
 }
 
-export function Header({ activeNav, onOpenStorefront }: HeaderProps) {
+export function Header({ activeNav, onOpenStorefront, onLogout }: HeaderProps) {
   const currentPage = navItems.find((n) => n.id === activeNav);
   const pageTitle = currentPage?.label ?? "Dasbor";
 
@@ -85,6 +86,20 @@ export function Header({ activeNav, onOpenStorefront }: HeaderProps) {
           className="text-muted-foreground hidden sm:block"
         />
       </div>
+
+      {/* Logout */}
+      {onLogout && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onLogout}
+          className="gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          data-ocid="header.logout.button"
+        >
+          <LogOut size={14} />
+          <span className="hidden sm:inline">Keluar</span>
+        </Button>
+      )}
     </header>
   );
 }

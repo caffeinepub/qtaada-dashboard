@@ -8,12 +8,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { products } from "@/data/mockData";
-import { ArrowLeft, Package, ShoppingBag } from "lucide-react";
-import { useState } from "react";
+import { useActor } from "@/hooks/useActor";
+import { ArrowLeft, Loader2, Package, ShoppingBag } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-type Product = (typeof products)[0];
+type Product = {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  colorHex: string;
+};
 
 const formatRp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
@@ -22,19 +29,59 @@ interface StorefrontPageProps {
 }
 
 export function StorefrontPage({ onBack }: StorefrontPageProps) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [form, setForm] = useState({ qty: "1", nama: "", phone: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  const handleOrder = () => {
-    if (!form.nama || !form.phone || !form.qty) return;
+  useEffect(() => {
+    if (!actorFetching && actor) {
+      (actor as any)
+        .getProducts()
+        .then((list: any[]) =>
+          setProducts(
+            list.map((p) => ({
+              id: Number(p.id),
+              name: p.name,
+              category: p.category,
+              price: Number(p.price),
+              stock: Number(p.stock),
+              colorHex: p.colorHex,
+            })),
+          ),
+        )
+        .finally(() => setLoading(false));
+    }
+  }, [actor, actorFetching]);
+
+  const handleOrder = async () => {
+    if (!form.nama || !form.phone || !form.qty || !selectedProduct || !actor)
+      return;
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
+    try {
+      const total = selectedProduct.price * Number(form.qty);
+      const today = new Date().toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+      await (actor as any).addOrder(
+        form.nama,
+        `${form.phone}@pelanggan.id`,
+        today,
+        formatRp(total),
+        "Tertunda",
+      );
       setSelectedProduct(null);
       setForm({ qty: "1", nama: "", phone: "" });
       toast.success("Pesanan berhasil dikirim!");
-    }, 800);
+    } catch {
+      toast.error("Gagal mengirim pesanan, coba lagi.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -81,51 +128,66 @@ export function StorefrontPage({ onBack }: StorefrontPageProps) {
 
       {/* Product Grid */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {products.map((p, i) => (
-            <button
-              type="button"
-              key={p.id}
-              className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-card-hover hover:border-blue-accent/50 transition-all duration-200 text-left group"
-              onClick={() => {
-                setSelectedProduct(p);
-                setForm({ qty: "1", nama: "", phone: "" });
-              }}
-              data-ocid={`storefront.item.${i + 1}`}
-            >
-              <div
-                className="h-40 flex items-center justify-center transition-transform group-hover:scale-[1.02]"
-                style={{ backgroundColor: `${p.colorHex}22` }}
+        {loading || actorFetching ? (
+          <div
+            className="flex items-center justify-center h-64"
+            data-ocid="storefront.loading_state"
+          >
+            <Loader2 className="animate-spin text-muted-foreground" size={32} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {products.map((p, i) => (
+              <button
+                type="button"
+                key={p.id}
+                className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-card-hover hover:border-blue-accent/50 transition-all duration-200 text-left group"
+                onClick={() => {
+                  setSelectedProduct(p);
+                  setForm({ qty: "1", nama: "", phone: "" });
+                }}
+                data-ocid={`storefront.item.${i + 1}`}
               >
                 <div
-                  className="w-20 h-20 rounded-2xl flex items-center justify-center"
-                  style={{ backgroundColor: p.colorHex }}
+                  className="h-40 flex items-center justify-center transition-transform group-hover:scale-[1.02]"
+                  style={{ backgroundColor: `${p.colorHex}22` }}
                 >
-                  <Package size={32} className="text-white" />
-                </div>
-              </div>
-              <div className="p-4 space-y-2">
-                <p className="font-600 text-foreground text-sm leading-tight">
-                  {p.name}
-                </p>
-                <p className="text-xs text-muted-foreground">{p.category}</p>
-                <div className="flex items-center justify-between">
-                  <span className="font-700 text-foreground">
-                    {formatRp(p.price)}
-                  </span>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${p.stock > 20 ? "bg-green-500/15 text-green-400" : p.stock > 0 ? "bg-yellow-500/15 text-yellow-400" : "bg-red-500/15 text-red-400"}`}
+                  <div
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center"
+                    style={{ backgroundColor: p.colorHex }}
                   >
-                    Stok: {p.stock}
-                  </span>
+                    <Package size={32} className="text-white" />
+                  </div>
                 </div>
-                <div className="mt-2 w-full py-2 rounded-lg bg-blue-accent/10 text-blue-accent text-xs font-600 text-center group-hover:bg-blue-accent group-hover:text-white transition-colors">
-                  Pesan Sekarang
+                <div className="p-4 space-y-2">
+                  <p className="font-600 text-foreground text-sm leading-tight">
+                    {p.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{p.category}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="font-700 text-foreground">
+                      {formatRp(p.price)}
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        p.stock > 20
+                          ? "bg-green-500/15 text-green-400"
+                          : p.stock > 0
+                            ? "bg-yellow-500/15 text-yellow-400"
+                            : "bg-red-500/15 text-red-400"
+                      }`}
+                    >
+                      Stok: {p.stock}
+                    </span>
+                  </div>
+                  <div className="mt-2 w-full py-2 rounded-lg bg-blue-accent/10 text-blue-accent text-xs font-600 text-center group-hover:bg-blue-accent group-hover:text-white transition-colors">
+                    Pesan Sekarang
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
-        </div>
+              </button>
+            ))}
+          </div>
+        )}
       </main>
 
       <footer className="text-center py-6 text-xs text-muted-foreground border-t border-border mt-8">
@@ -248,6 +310,9 @@ export function StorefrontPage({ onBack }: StorefrontPageProps) {
               disabled={submitting || !form.nama || !form.phone || !form.qty}
               data-ocid="storefront.submit_button"
             >
+              {submitting ? (
+                <Loader2 className="animate-spin mr-2" size={14} />
+              ) : null}
               {submitting ? "Mengirim..." : "Kirim Pesanan"}
             </Button>
           </DialogFooter>
