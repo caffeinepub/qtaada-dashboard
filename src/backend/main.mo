@@ -3,8 +3,18 @@ import Nat "mo:base/Nat";
 
 actor {
 
-  // New Product type with imageUrl
-  public type Product = {
+  // V1 - no imageUrl (oldest legacy)
+  type ProductV1 = {
+    id : Nat;
+    name : Text;
+    category : Text;
+    price : Nat;
+    stock : Nat;
+    colorHex : Text;
+  };
+
+  // V2 / old runtime type - with imageUrl, no demoLink
+  type ProductV2 = {
     id : Nat;
     name : Text;
     category : Text;
@@ -14,14 +24,16 @@ actor {
     imageUrl : Text;
   };
 
-  // Legacy type matching previous stable variable schema (without imageUrl)
-  type ProductV1 = {
+  // Current type - with imageUrl + demoLink
+  public type Product = {
     id : Nat;
     name : Text;
     category : Text;
     price : Nat;
     stock : Nat;
     colorHex : Text;
+    imageUrl : Text;
+    demoLink : Text;
   };
 
   public type Order = {
@@ -43,17 +55,14 @@ actor {
     joinDate : Text;
   };
 
-  // Legacy stable var – reads existing on-chain data (old schema without imageUrl)
-  stable var products : [ProductV1] = [
-    { id = 1; name = "Beras Premium 5kg"; category = "Sembako"; price = 75000; stock = 120; colorHex = "#3b82f6" },
-    { id = 2; name = "Minyak Goreng 2L"; category = "Sembako"; price = 32000; stock = 85; colorHex = "#22c55e" },
-    { id = 3; name = "Gula Pasir 1kg"; category = "Sembako"; price = 15000; stock = 200; colorHex = "#a855f7" },
-    { id = 4; name = "Tepung Terigu 1kg"; category = "Bahan Kue"; price = 12000; stock = 150; colorHex = "#f59e0b" },
-    { id = 5; name = "Kopi Robusta 250g"; category = "Minuman"; price = 28000; stock = 60; colorHex = "#ef4444" },
-  ];
-
-  // New stable var for migrated / new product data
-  stable var productsV2 : [Product] = [];
+  // Stable vars for migration chain
+  // runtimeProducts kept with old type (ProductV2) so the canister upgrade is compatible
+  stable var products : [ProductV1] = [];
+  stable var productsV2 : [ProductV2] = [];
+  // runtimeProducts was previously stable var [ProductV2] in deployed code — keep same type for compat
+  stable var runtimeProducts : [ProductV2] = [];
+  // New stable store for current Product type (with demoLink)
+  stable var productsV3 : [Product] = [];
 
   stable var orders : [Order] = [
     { id = "#ORD-1"; customer = "Budi Santoso"; email = "budi@gmail.com"; date = "20 Mar 2026"; amount = "Rp 150.000"; status = "Selesai" },
@@ -78,46 +87,64 @@ actor {
   stable var nextCustomerId : Nat = 6;
   stable var nextOrderSeq : Nat = 9;
 
-  // Runtime product list (populated in postupgrade)
-  var runtimeProducts : [Product] = [];
+  // Non-stable runtime list — populated in postupgrade
+  var activeProducts : [Product] = [];
 
-  // Migrate legacy products to new schema on upgrade
+  func migrateV2(p : ProductV2) : Product {
+    { id = p.id; name = p.name; category = p.category; price = p.price; stock = p.stock; colorHex = p.colorHex; imageUrl = p.imageUrl; demoLink = "" }
+  };
+
+  func migrateV1(p : ProductV1) : Product {
+    { id = p.id; name = p.name; category = p.category; price = p.price; stock = p.stock; colorHex = p.colorHex; imageUrl = ""; demoLink = "" }
+  };
+
   system func postupgrade() {
-    if (productsV2.size() > 0) {
-      runtimeProducts := productsV2;
+    if (productsV3.size() > 0) {
+      activeProducts := productsV3;
+    } else if (runtimeProducts.size() > 0) {
+      activeProducts := Array.map(runtimeProducts, migrateV2);
+      runtimeProducts := [];
+    } else if (productsV2.size() > 0) {
+      activeProducts := Array.map(productsV2, migrateV2);
+      productsV2 := [];
     } else if (products.size() > 0) {
-      runtimeProducts := Array.map(products, func(p : ProductV1) : Product {
-        { id = p.id; name = p.name; category = p.category; price = p.price; stock = p.stock; colorHex = p.colorHex; imageUrl = "" }
-      });
+      activeProducts := Array.map(products, migrateV1);
       products := [];
+    } else {
+      activeProducts := [
+        { id = 1; name = "Beras Premium 5kg"; category = "Sembako"; price = 75000; stock = 120; colorHex = "#3b82f6"; imageUrl = ""; demoLink = "" },
+        { id = 2; name = "Minyak Goreng 2L"; category = "Sembako"; price = 32000; stock = 85; colorHex = "#22c55e"; imageUrl = ""; demoLink = "" },
+        { id = 3; name = "Gula Pasir 1kg"; category = "Sembako"; price = 15000; stock = 200; colorHex = "#a855f7"; imageUrl = ""; demoLink = "" },
+        { id = 4; name = "Tepung Terigu 1kg"; category = "Bahan Kue"; price = 12000; stock = 150; colorHex = "#f59e0b"; imageUrl = ""; demoLink = "" },
+        { id = 5; name = "Kopi Robusta 250g"; category = "Minuman"; price = 28000; stock = 60; colorHex = "#ef4444"; imageUrl = ""; demoLink = "" },
+      ];
     };
   };
 
-  // Persist runtime products before upgrade
   system func preupgrade() {
-    productsV2 := runtimeProducts;
+    productsV3 := activeProducts;
   };
 
   // Products
 
   public query func getProducts() : async [Product] {
-    runtimeProducts
+    activeProducts
   };
 
-  public func addProduct(name : Text, category : Text, price : Nat, stock : Nat, colorHex : Text, imageUrl : Text) : async Product {
-    let p : Product = { id = nextProductId; name; category; price; stock; colorHex; imageUrl };
-    runtimeProducts := Array.append(runtimeProducts, [p]);
+  public func addProduct(name : Text, category : Text, price : Nat, stock : Nat, colorHex : Text, imageUrl : Text, demoLink : Text) : async Product {
+    let p : Product = { id = nextProductId; name; category; price; stock; colorHex; imageUrl; demoLink };
+    activeProducts := Array.append(activeProducts, [p]);
     nextProductId += 1;
     p
   };
 
-  public func updateProduct(id : Nat, name : Text, category : Text, price : Nat, stock : Nat, colorHex : Text, imageUrl : Text) : async Bool {
-    let found = Array.find(runtimeProducts, func(p : Product) : Bool { p.id == id });
+  public func updateProduct(id : Nat, name : Text, category : Text, price : Nat, stock : Nat, colorHex : Text, imageUrl : Text, demoLink : Text) : async Bool {
+    let found = Array.find(activeProducts, func(p : Product) : Bool { p.id == id });
     switch (found) {
       case null { false };
       case (?_) {
-        runtimeProducts := Array.map(runtimeProducts, func(p : Product) : Product {
-          if (p.id == id) { { id; name; category; price; stock; colorHex; imageUrl } } else { p }
+        activeProducts := Array.map(activeProducts, func(p : Product) : Product {
+          if (p.id == id) { { id; name; category; price; stock; colorHex; imageUrl; demoLink } } else { p }
         });
         true
       };
@@ -125,9 +152,9 @@ actor {
   };
 
   public func deleteProduct(id : Nat) : async Bool {
-    let before = runtimeProducts.size();
-    runtimeProducts := Array.filter(runtimeProducts, func(p : Product) : Bool { p.id != id });
-    runtimeProducts.size() < before
+    let before = activeProducts.size();
+    activeProducts := Array.filter(activeProducts, func(p : Product) : Bool { p.id != id });
+    activeProducts.size() < before
   };
 
   // Orders

@@ -9,10 +9,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { loadConfig } from "@/config";
 import { useActor } from "@/hooks/useActor";
+import { StorageClient } from "@/utils/StorageClient";
+import { HttpAgent } from "@icp-sdk/core/agent";
 import {
   Edit2,
   ImagePlus,
+  Link,
   Loader2,
   Package,
   Plus,
@@ -29,6 +33,7 @@ type Product = {
   stock: number;
   colorHex: string;
   imageUrl: string;
+  demoLink: string;
 };
 
 const formatRp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
@@ -42,13 +47,13 @@ const COLORS = [
   "#06b6d4",
 ];
 
-// Compress & resize image to max 400px wide, JPEG quality 0.65
+// Compress & resize image to max 800px wide, JPEG quality 0.8 — for local preview only
 function compressImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const MAX_W = 400;
+      const MAX_W = 800;
       const scale = img.width > MAX_W ? MAX_W / img.width : 1;
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
@@ -62,7 +67,7 @@ function compressImage(file: File): Promise<string> {
       }
       ctx.drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.65));
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
     };
     img.onerror = reject;
     img.src = url;
@@ -82,6 +87,7 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
   const [editItem, setEditItem] = useState<Product | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [imageError, setImageError] = useState("");
   const [form, setForm] = useState({
     name: "",
@@ -89,6 +95,8 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
     price: "",
     stock: "",
     imageUrl: "",
+    imagePreview: "",
+    demoLink: "",
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -106,6 +114,7 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
           stock: Number(p.stock),
           colorHex: p.colorHex,
           imageUrl: p.imageUrl ?? "",
+          demoLink: p.demoLink ?? "",
         })),
       );
     } finally {
@@ -129,7 +138,15 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
     setEditItem(null);
     setImageFile(null);
     setImageError("");
-    setForm({ name: "", category: "", price: "", stock: "", imageUrl: "" });
+    setForm({
+      name: "",
+      category: "",
+      price: "",
+      stock: "",
+      imageUrl: "",
+      imagePreview: "",
+      demoLink: "",
+    });
     setDialogOpen(true);
   };
 
@@ -143,6 +160,8 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
       price: String(p.price),
       stock: String(p.stock),
       imageUrl: p.imageUrl,
+      imagePreview: p.imageUrl,
+      demoLink: p.demoLink,
     });
     setDialogOpen(true);
   };
@@ -151,30 +170,60 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     setImageError("");
-    // 5MB original file limit
-    if (file.size > 5 * 1024 * 1024) {
-      setImageError("Ukuran file maks 5MB");
+    if (file.size > 10 * 1024 * 1024) {
+      setImageError("Ukuran file maks 10MB");
       return;
     }
     setImageFile(file);
+
+    // Show local preview immediately
+    const localPreview = URL.createObjectURL(file);
+    setForm((f) => ({ ...f, imagePreview: localPreview, imageUrl: "" }));
+
+    // Upload to blob storage
+    setUploading(true);
     try {
+      // Compress for upload
       const compressed = await compressImage(file);
-      setForm((f) => ({ ...f, imageUrl: compressed }));
+      // Convert base64 data URL to Uint8Array
+      const base64 = compressed.split(",")[1];
+      const binaryStr = atob(base64);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+
+      const config = await loadConfig();
+      const agent = new HttpAgent({ host: config.backend_host });
+      const client = new StorageClient(
+        config.bucket_name,
+        config.storage_gateway_url,
+        config.backend_canister_id,
+        config.project_id,
+        agent,
+      );
+      const { hash } = await client.putFile(bytes);
+      const url = await client.getDirectURL(hash);
+      setForm((f) => ({ ...f, imageUrl: url, imagePreview: url }));
     } catch {
-      setImageError("Gagal memproses gambar, coba file lain");
+      setImageError("Gagal mengunggah gambar, coba lagi");
+      setForm((f) => ({ ...f, imagePreview: "", imageUrl: "" }));
+    } finally {
+      setUploading(false);
     }
   };
 
   const handleRemoveImage = () => {
     setImageFile(null);
     setImageError("");
-    setForm((f) => ({ ...f, imageUrl: "" }));
+    setForm((f) => ({ ...f, imageUrl: "", imagePreview: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSave = async () => {
     if (!form.name || !form.category || !form.price || !form.stock || !actor)
       return;
+    if (uploading) return; // wait for upload to finish
     setSaving(true);
     try {
       if (editItem) {
@@ -186,6 +235,7 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
           BigInt(form.stock),
           editItem.colorHex,
           form.imageUrl || editItem.imageUrl,
+          form.demoLink,
         );
       } else {
         const newIdx = items.length;
@@ -196,6 +246,7 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
           BigInt(form.stock),
           COLORS[newIdx % COLORS.length],
           form.imageUrl,
+          form.demoLink,
         );
       }
       await loadProducts();
@@ -301,6 +352,17 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
                   Stok: {p.stock}
                 </span>
               </div>
+              {p.demoLink && (
+                <a
+                  href={p.demoLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Link size={11} /> Coba Demo
+                </a>
+              )}
               {isAdmin && (
                 <div className="flex gap-2 pt-1">
                   <Button
@@ -331,7 +393,7 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent
-          className="bg-card border-border"
+          className="bg-card border-border max-h-[90vh] overflow-y-auto"
           data-ocid="products.dialog"
         >
           <DialogHeader>
@@ -408,27 +470,37 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
               {imageError && (
                 <p className="text-xs text-destructive mb-1.5">{imageError}</p>
               )}
-              {form.imageUrl ? (
+              {form.imagePreview ? (
                 <div className="relative w-full h-36 rounded-lg overflow-hidden border border-border">
                   <img
-                    src={form.imageUrl}
+                    src={form.imagePreview}
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />
-                  <button
-                    type="button"
-                    onClick={handleRemoveImage}
-                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white text-xs rounded-md px-2 py-1 flex items-center gap-1 transition-colors"
-                  >
-                    <ImagePlus size={12} /> Ganti
-                  </button>
+                  {uploading && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-2">
+                      <Loader2 size={18} className="animate-spin text-white" />
+                      <span className="text-white text-xs">Mengunggah...</span>
+                    </div>
+                  )}
+                  {!uploading && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white text-xs rounded-md px-2 py-1 flex items-center gap-1 transition-colors"
+                      >
+                        <ImagePlus size={12} /> Ganti
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
                 <button
@@ -440,10 +512,35 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
                   <ImagePlus size={24} />
                   <span className="text-xs font-medium">Upload Gambar</span>
                   <span className="text-xs opacity-60">
-                    {imageFile ? imageFile.name : "JPG, PNG, WEBP — maks 5MB"}
+                    {imageFile ? imageFile.name : "JPG, PNG, WEBP — maks 10MB"}
                   </span>
                 </button>
               )}
+            </div>
+
+            {/* Demo Link */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">
+                Link Demo{" "}
+                <span className="opacity-60">
+                  (opsional, untuk produk digital)
+                </span>
+              </Label>
+              <div className="relative">
+                <Link
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  value={form.demoLink}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, demoLink: e.target.value }))
+                  }
+                  placeholder="https://demo.contoh.com"
+                  className="pl-9"
+                  data-ocid="products.input"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter className="gap-2">
@@ -456,13 +553,13 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || uploading}
               data-ocid="products.save_button"
             >
-              {saving ? (
+              {saving || uploading ? (
                 <Loader2 className="animate-spin mr-2" size={14} />
               ) : null}
-              Simpan
+              {uploading ? "Mengunggah..." : "Simpan"}
             </Button>
           </DialogFooter>
         </DialogContent>

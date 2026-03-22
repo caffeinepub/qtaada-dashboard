@@ -17,6 +17,8 @@ export interface Product {
   price: bigint;
   stock: bigint;
   colorHex: string;
+  imageUrl: string;
+  demoLink: string;
 }
 
 export interface Order {
@@ -40,8 +42,8 @@ export interface Customer {
 
 export interface _SERVICE {
   getProducts: ActorMethod<[], Product[]>;
-  addProduct: ActorMethod<[string, string, bigint, bigint, string], Product>;
-  updateProduct: ActorMethod<[bigint, string, string, bigint, bigint, string], boolean>;
+  addProduct: ActorMethod<[string, string, bigint, bigint, string, string, string], Product>;
+  updateProduct: ActorMethod<[bigint, string, string, bigint, bigint, string, string, string], boolean>;
   deleteProduct: ActorMethod<[bigint], boolean>;
   getOrders: ActorMethod<[], Order[]>;
   addOrder: ActorMethod<[string, string, string, string, string], Order>;

@@ -9,7 +9,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActor } from "@/hooks/useActor";
-import { LayoutDashboard, Loader2, Package, ShoppingBag } from "lucide-react";
+import {
+  ExternalLink,
+  LayoutDashboard,
+  Loader2,
+  Package,
+  ShoppingBag,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -20,6 +26,8 @@ type Product = {
   price: number;
   stock: number;
   colorHex: string;
+  imageUrl: string;
+  demoLink: string;
 };
 
 const formatRp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
@@ -51,6 +59,8 @@ export function StorefrontPage({ onBack, isPublic }: StorefrontPageProps) {
               price: Number(p.price),
               stock: Number(p.stock),
               colorHex: p.colorHex,
+              imageUrl: p.imageUrl ?? "",
+              demoLink: p.demoLink ?? "",
             })),
           ),
         )
@@ -141,53 +151,89 @@ export function StorefrontPage({ onBack, isPublic }: StorefrontPageProps) {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {products.map((p, i) => (
-              <button
-                type="button"
+              <div
                 key={p.id}
-                className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-card-hover hover:border-blue-accent/50 transition-all duration-200 text-left group"
-                onClick={() => {
-                  setSelectedProduct(p);
-                  setForm({ qty: "1", nama: "", phone: "" });
-                }}
+                className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-card-hover hover:border-blue-accent/50 transition-all duration-200 text-left group flex flex-col"
                 data-ocid={`storefront.item.${i + 1}`}
               >
-                <div
-                  className="h-40 flex items-center justify-center transition-transform group-hover:scale-[1.02]"
-                  style={{ backgroundColor: `${p.colorHex}22` }}
+                <button
+                  type="button"
+                  className="text-left flex-1"
+                  onClick={() => {
+                    setSelectedProduct(p);
+                    setForm({ qty: "1", nama: "", phone: "" });
+                  }}
                 >
-                  <div
-                    className="w-20 h-20 rounded-2xl flex items-center justify-center"
-                    style={{ backgroundColor: p.colorHex }}
-                  >
-                    <Package size={32} className="text-white" />
+                  <div className="h-40 overflow-hidden transition-transform group-hover:scale-[1.02]">
+                    {p.imageUrl ? (
+                      <img
+                        src={p.imageUrl}
+                        alt={p.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ backgroundColor: `${p.colorHex}22` }}
+                      >
+                        <div
+                          className="w-20 h-20 rounded-2xl flex items-center justify-center"
+                          style={{ backgroundColor: p.colorHex }}
+                        >
+                          <Package size={32} className="text-white" />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className="p-4 space-y-2">
-                  <p className="font-600 text-foreground text-sm leading-tight">
-                    {p.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{p.category}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="font-700 text-foreground">
-                      {formatRp(p.price)}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        p.stock > 20
-                          ? "bg-green-500/15 text-green-400"
-                          : p.stock > 0
-                            ? "bg-yellow-500/15 text-yellow-400"
-                            : "bg-red-500/15 text-red-400"
-                      }`}
+                  <div className="p-4 space-y-2">
+                    <p className="font-600 text-foreground text-sm leading-tight">
+                      {p.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.category}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-700 text-foreground">
+                        {formatRp(p.price)}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${
+                          p.stock > 20
+                            ? "bg-green-500/15 text-green-400"
+                            : p.stock > 0
+                              ? "bg-yellow-500/15 text-yellow-400"
+                              : "bg-red-500/15 text-red-400"
+                        }`}
+                      >
+                        Stok: {p.stock}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+                <div className="px-4 pb-4 space-y-2">
+                  {p.demoLink && (
+                    <a
+                      href={p.demoLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg border border-blue-accent/40 text-blue-accent text-xs font-600 hover:bg-blue-accent/10 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      Stok: {p.stock}
-                    </span>
-                  </div>
-                  <div className="mt-2 w-full py-2 rounded-lg bg-blue-accent/10 text-blue-accent text-xs font-600 text-center group-hover:bg-blue-accent group-hover:text-white transition-colors">
+                      <ExternalLink size={12} /> Coba Demo
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    className="w-full py-2 rounded-lg bg-blue-accent/10 text-blue-accent text-xs font-600 text-center group-hover:bg-blue-accent group-hover:text-white transition-colors"
+                    onClick={() => {
+                      setSelectedProduct(p);
+                      setForm({ qty: "1", nama: "", phone: "" });
+                    }}
+                  >
                     Pesan Sekarang
-                  </div>
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -220,19 +266,37 @@ export function StorefrontPage({ onBack, isPublic }: StorefrontPageProps) {
           {selectedProduct && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: selectedProduct.colorHex }}
-                >
-                  <Package size={18} className="text-white" />
-                </div>
-                <div>
+                {selectedProduct.imageUrl ? (
+                  <img
+                    src={selectedProduct.imageUrl}
+                    alt={selectedProduct.name}
+                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: selectedProduct.colorHex }}
+                  >
+                    <Package size={18} className="text-white" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
                   <p className="font-600 text-foreground text-sm">
                     {selectedProduct.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {formatRp(selectedProduct.price)}
                   </p>
+                  {selectedProduct.demoLink && (
+                    <a
+                      href={selectedProduct.demoLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-0.5"
+                    >
+                      <ExternalLink size={11} /> Lihat Demo
+                    </a>
+                  )}
                 </div>
               </div>
 

@@ -15,6 +15,7 @@ const Product = IDL.Record({
   price: IDL.Nat,
   stock: IDL.Nat,
   colorHex: IDL.Text,
+  imageUrl: IDL.Text,
 });
 
 const Order = IDL.Record({
@@ -38,8 +39,8 @@ const Customer = IDL.Record({
 
 export const idlService = IDL.Service({
   getProducts: IDL.Func([], [IDL.Vec(Product)], ['query']),
-  addProduct: IDL.Func([IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text], [Product], []),
-  updateProduct: IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text], [IDL.Bool], []),
+  addProduct: IDL.Func([IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text, IDL.Text], [Product], []),
+  updateProduct: IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text, IDL.Text], [IDL.Bool], []),
   deleteProduct: IDL.Func([IDL.Nat], [IDL.Bool], []),
   getOrders: IDL.Func([], [IDL.Vec(Order)], ['query']),
   addOrder: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [Order], []),
@@ -61,6 +62,7 @@ export const idlFactory = ({ IDL }) => {
     price: IDL.Nat,
     stock: IDL.Nat,
     colorHex: IDL.Text,
+    imageUrl: IDL.Text,
   });
 
   const Order = IDL.Record({
@@ -84,8 +86,8 @@ export const idlFactory = ({ IDL }) => {
 
   return IDL.Service({
     getProducts: IDL.Func([], [IDL.Vec(Product)], ['query']),
-    addProduct: IDL.Func([IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text], [Product], []),
-    updateProduct: IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text], [IDL.Bool], []),
+    addProduct: IDL.Func([IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text, IDL.Text], [Product], []),
+    updateProduct: IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text, IDL.Text], [IDL.Bool], []),
     deleteProduct: IDL.Func([IDL.Nat], [IDL.Bool], []),
     getOrders: IDL.Func([], [IDL.Vec(Order)], ['query']),
     addOrder: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [Order], []),

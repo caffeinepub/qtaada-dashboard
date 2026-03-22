@@ -10,8 +10,8 @@ export type Option<T> = Some<T> | None;
 export interface backendInterface {
     _initializeAccessControlWithSecret(token: string): Promise<void>;
     getProducts(): Promise<any[]>;
-    addProduct(name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string): Promise<any>;
-    updateProduct(id: bigint, name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string): Promise<boolean>;
+    addProduct(name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string, demoLink: string): Promise<any>;
+    updateProduct(id: bigint, name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string, demoLink: string): Promise<boolean>;
     deleteProduct(id: bigint): Promise<boolean>;
     getOrders(): Promise<any[]>;
     addOrder(customer: string, email: string, date: string, amount: string, status: string): Promise<any>;
