@@ -3,17 +3,29 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { navItems } from "@/data/mockData";
+import type { AppSettings } from "@/types/settings";
 import { Bell, ChevronDown, LogOut, Search, Store } from "lucide-react";
 
 interface HeaderProps {
   activeNav: string;
   onOpenStorefront?: () => void;
   onLogout?: () => void;
+  settings?: AppSettings;
 }
 
-export function Header({ activeNav, onOpenStorefront, onLogout }: HeaderProps) {
+export function Header({
+  activeNav,
+  onOpenStorefront,
+  onLogout,
+  settings,
+}: HeaderProps) {
   const currentPage = navItems.find((n) => n.id === activeNav);
   const pageTitle = currentPage?.label ?? "Dasbor";
+  const displayName = settings?.displayName ?? "wijayakusuma";
+  const welcomeMessage = settings?.welcomeMessage ?? "Selamat datang kembali";
+  const showSearch = settings?.showSearch ?? true;
+  const showStorefrontButton = settings?.showStorefrontButton ?? true;
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <header className="fixed top-0 right-0 left-0 h-16 bg-card border-b border-border z-30 flex items-center px-6 gap-4">
@@ -23,12 +35,12 @@ export function Header({ activeNav, onOpenStorefront, onLogout }: HeaderProps) {
           {pageTitle}
         </h1>
         <p className="text-xs text-muted-foreground">
-          Selamat datang kembali, wijayakusuma
+          {welcomeMessage}, {displayName}
         </p>
       </div>
 
       {/* Storefront button */}
-      {onOpenStorefront && (
+      {showStorefrontButton && onOpenStorefront && (
         <Button
           variant="outline"
           size="sm"
@@ -41,14 +53,16 @@ export function Header({ activeNav, onOpenStorefront, onLogout }: HeaderProps) {
       )}
 
       {/* Search */}
-      <div className="relative hidden md:block">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          data-ocid="header.search_input"
-          placeholder="Cari..."
-          className="pl-9 w-56 h-9 bg-background border-border text-sm"
-        />
-      </div>
+      {showSearch && (
+        <div className="relative hidden md:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            data-ocid="header.search_input"
+            placeholder="Cari..."
+            className="pl-9 w-56 h-9 bg-background border-border text-sm"
+          />
+        </div>
+      )}
 
       {/* Notifications */}
       <div className="relative">
@@ -72,12 +86,12 @@ export function Header({ activeNav, onOpenStorefront, onLogout }: HeaderProps) {
       >
         <Avatar className="w-8 h-8">
           <AvatarFallback className="bg-blue-accent text-white text-xs font-600">
-            W
+            {initial}
           </AvatarFallback>
         </Avatar>
         <div className="hidden sm:block">
           <p className="text-sm font-600 text-foreground leading-none">
-            wijayakusuma
+            {displayName}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">Administrator</p>
         </div>

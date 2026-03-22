@@ -10,7 +10,9 @@ import { OrdersPage } from "@/pages/OrdersPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProductsPage } from "@/pages/ProductsPage";
 import { ReportsPage } from "@/pages/ReportsPage";
+import { SettingsPage } from "@/pages/SettingsPage";
 import { StorefrontPage } from "@/pages/StorefrontPage";
+import { type AppSettings, DEFAULT_SETTINGS } from "@/types/settings";
 import { useState } from "react";
 
 const pageLabels: Record<string, string> = {
@@ -22,11 +24,28 @@ const pageLabels: Record<string, string> = {
   settings: "Pengaturan",
 };
 
+function loadSettings(): AppSettings {
+  try {
+    const stored = localStorage.getItem("appSettings");
+    return stored
+      ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+      : DEFAULT_SETTINGS;
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeNav, setActiveNav] = useState("dashboard");
-  const [collapsed, setCollapsed] = useState(false);
+  const [settings, setSettings] = useState<AppSettings>(loadSettings);
+  const [collapsed, setCollapsed] = useState(settings.sidebarDefaultCollapsed);
   const [storefrontMode, setStorefrontMode] = useState(false);
+
+  const handleSaveSettings = (s: AppSettings) => {
+    localStorage.setItem("appSettings", JSON.stringify(s));
+    setSettings(s);
+  };
 
   if (!isLoggedIn) {
     return (
@@ -64,6 +83,8 @@ export default function App() {
         return <CustomersPage isAdmin={isLoggedIn} />;
       case "reports":
         return <ReportsPage />;
+      case "settings":
+        return <SettingsPage settings={settings} onSave={handleSaveSettings} />;
       default:
         return <PlaceholderPage title={pageLabels[activeNav] ?? "Page"} />;
     }
@@ -76,6 +97,7 @@ export default function App() {
         onNavChange={setActiveNav}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((c) => !c)}
+        settings={settings}
       />
 
       <div
@@ -86,6 +108,7 @@ export default function App() {
           activeNav={activeNav}
           onOpenStorefront={() => setStorefrontMode(true)}
           onLogout={() => setIsLoggedIn(false)}
+          settings={settings}
         />
 
         <main className="pt-16 min-h-screen" data-ocid="dashboard.page">
@@ -99,6 +122,9 @@ export default function App() {
         )}
         style={{ marginLeft: sidebarWidth }}
       >
+        {settings.footerText && (
+          <span className="block mb-1">{settings.footerText}</span>
+        )}
         © {new Date().getFullYear()}. Built with love using{" "}
         <a
           href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}

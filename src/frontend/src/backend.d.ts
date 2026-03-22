@@ -8,4 +8,16 @@ export interface None {
 }
 export type Option<T> = Some<T> | None;
 export interface backendInterface {
+    getProducts(): Promise<any[]>;
+    addProduct(name: string, category: string, price: bigint, stock: bigint, colorHex: string): Promise<any>;
+    updateProduct(id: bigint, name: string, category: string, price: bigint, stock: bigint, colorHex: string): Promise<boolean>;
+    deleteProduct(id: bigint): Promise<boolean>;
+    getOrders(): Promise<any[]>;
+    addOrder(customer: string, email: string, date: string, amount: string, status: string): Promise<any>;
+    updateOrder(id: string, customer: string, email: string, date: string, amount: string, status: string): Promise<boolean>;
+    deleteOrder(id: string): Promise<boolean>;
+    getCustomers(): Promise<any[]>;
+    addCustomer(name: string, email: string, phone: string, totalOrders: bigint, totalSpent: string, joinDate: string): Promise<any>;
+    updateCustomer(id: bigint, name: string, email: string, phone: string, totalOrders: bigint, totalSpent: string, joinDate: string): Promise<boolean>;
+    deleteCustomer(id: bigint): Promise<boolean>;
 }

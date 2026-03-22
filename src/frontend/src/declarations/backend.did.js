@@ -8,10 +8,94 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
-export const idlService = IDL.Service({});
+const Product = IDL.Record({
+  id: IDL.Nat,
+  name: IDL.Text,
+  category: IDL.Text,
+  price: IDL.Nat,
+  stock: IDL.Nat,
+  colorHex: IDL.Text,
+});
+
+const Order = IDL.Record({
+  id: IDL.Text,
+  customer: IDL.Text,
+  email: IDL.Text,
+  date: IDL.Text,
+  amount: IDL.Text,
+  status: IDL.Text,
+});
+
+const Customer = IDL.Record({
+  id: IDL.Nat,
+  name: IDL.Text,
+  email: IDL.Text,
+  phone: IDL.Text,
+  totalOrders: IDL.Nat,
+  totalSpent: IDL.Text,
+  joinDate: IDL.Text,
+});
+
+export const idlService = IDL.Service({
+  getProducts: IDL.Func([], [IDL.Vec(Product)], ['query']),
+  addProduct: IDL.Func([IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text], [Product], []),
+  updateProduct: IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text], [IDL.Bool], []),
+  deleteProduct: IDL.Func([IDL.Nat], [IDL.Bool], []),
+  getOrders: IDL.Func([], [IDL.Vec(Order)], ['query']),
+  addOrder: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [Order], []),
+  updateOrder: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [IDL.Bool], []),
+  deleteOrder: IDL.Func([IDL.Text], [IDL.Bool], []),
+  getCustomers: IDL.Func([], [IDL.Vec(Customer)], ['query']),
+  addCustomer: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text], [Customer], []),
+  updateCustomer: IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text], [IDL.Bool], []),
+  deleteCustomer: IDL.Func([IDL.Nat], [IDL.Bool], []),
+});
 
 export const idlInitArgs = [];
 
-export const idlFactory = ({ IDL }) => { return IDL.Service({}); };
+export const idlFactory = ({ IDL }) => {
+  const Product = IDL.Record({
+    id: IDL.Nat,
+    name: IDL.Text,
+    category: IDL.Text,
+    price: IDL.Nat,
+    stock: IDL.Nat,
+    colorHex: IDL.Text,
+  });
+
+  const Order = IDL.Record({
+    id: IDL.Text,
+    customer: IDL.Text,
+    email: IDL.Text,
+    date: IDL.Text,
+    amount: IDL.Text,
+    status: IDL.Text,
+  });
+
+  const Customer = IDL.Record({
+    id: IDL.Nat,
+    name: IDL.Text,
+    email: IDL.Text,
+    phone: IDL.Text,
+    totalOrders: IDL.Nat,
+    totalSpent: IDL.Text,
+    joinDate: IDL.Text,
+  });
+
+  return IDL.Service({
+    getProducts: IDL.Func([], [IDL.Vec(Product)], ['query']),
+    addProduct: IDL.Func([IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text], [Product], []),
+    updateProduct: IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Text], [IDL.Bool], []),
+    deleteProduct: IDL.Func([IDL.Nat], [IDL.Bool], []),
+    getOrders: IDL.Func([], [IDL.Vec(Order)], ['query']),
+    addOrder: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [Order], []),
+    updateOrder: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [IDL.Bool], []),
+    deleteOrder: IDL.Func([IDL.Text], [IDL.Bool], []),
+    getCustomers: IDL.Func([], [IDL.Vec(Customer)], ['query']),
+    addCustomer: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text], [Customer], []),
+    updateCustomer: IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text], [IDL.Bool], []),
+    deleteCustomer: IDL.Func([IDL.Nat], [IDL.Bool], []),
+  });
+};
 
 export const init = ({ IDL }) => { return []; };

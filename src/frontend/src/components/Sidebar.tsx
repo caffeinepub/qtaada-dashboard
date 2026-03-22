@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { navItems } from "@/data/mockData";
 import { cn } from "@/lib/utils";
+import type { AppSettings } from "@/types/settings";
 import {
   BarChart2,
   ChevronLeft,
@@ -32,6 +33,7 @@ interface SidebarProps {
   onNavChange: (id: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  settings?: AppSettings;
 }
 
 export function Sidebar({
@@ -39,7 +41,14 @@ export function Sidebar({
   onNavChange,
   collapsed,
   onToggleCollapse,
+  settings,
 }: SidebarProps) {
+  const brandName = settings?.brandName ?? "BUMR tagleni";
+  const brandSubtitle =
+    settings?.brandSubtitle ?? "Badan Usaha Milik Rtik Subang";
+  const displayName = settings?.displayName ?? "wijayakusuma";
+  const initial = displayName.charAt(0).toUpperCase();
+
   return (
     <aside
       className={cn(
@@ -62,10 +71,10 @@ export function Sidebar({
         {!collapsed && (
           <div className="flex flex-col">
             <span className="font-display font-700 text-lg text-sidebar-foreground tracking-tight leading-tight">
-              BUMR tagleni
+              {brandName}
             </span>
             <span className="text-xs text-sidebar-foreground/50 leading-tight">
-              Badan Usaha Milik Rtik Subang
+              {brandSubtitle}
             </span>
           </div>
         )}
@@ -122,12 +131,12 @@ export function Sidebar({
           <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-sidebar-accent transition-colors cursor-pointer">
             <Avatar className="w-8 h-8 shrink-0">
               <AvatarFallback className="bg-blue-accent text-white text-xs font-600">
-                W
+                {initial}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-600 text-sidebar-foreground truncate">
-                wijayakusuma
+                {displayName}
               </p>
               <p className="text-xs text-sidebar-foreground/50 truncate">
                 Admin
@@ -146,7 +155,7 @@ export function Sidebar({
           <div className="flex justify-center">
             <Avatar className="w-8 h-8">
               <AvatarFallback className="bg-blue-accent text-white text-xs font-600">
-                W
+                {initial}
               </AvatarFallback>
             </Avatar>
           </div>

@@ -90,9 +90,58 @@ export class ExternalBlob {
     }
 }
 export interface backendInterface {
+    getProducts(): Promise<any[]>;
+    addProduct(name: string, category: string, price: bigint, stock: bigint, colorHex: string): Promise<any>;
+    updateProduct(id: bigint, name: string, category: string, price: bigint, stock: bigint, colorHex: string): Promise<boolean>;
+    deleteProduct(id: bigint): Promise<boolean>;
+    getOrders(): Promise<any[]>;
+    addOrder(customer: string, email: string, date: string, amount: string, status: string): Promise<any>;
+    updateOrder(id: string, customer: string, email: string, date: string, amount: string, status: string): Promise<boolean>;
+    deleteOrder(id: string): Promise<boolean>;
+    getCustomers(): Promise<any[]>;
+    addCustomer(name: string, email: string, phone: string, totalOrders: bigint, totalSpent: string, joinDate: string): Promise<any>;
+    updateCustomer(id: bigint, name: string, email: string, phone: string, totalOrders: bigint, totalSpent: string, joinDate: string): Promise<boolean>;
+    deleteCustomer(id: bigint): Promise<boolean>;
 }
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+
+    async getProducts(): Promise<any[]> {
+        return (this.actor as any).getProducts();
+    }
+    async addProduct(name: string, category: string, price: bigint, stock: bigint, colorHex: string): Promise<any> {
+        return (this.actor as any).addProduct(name, category, price, stock, colorHex);
+    }
+    async updateProduct(id: bigint, name: string, category: string, price: bigint, stock: bigint, colorHex: string): Promise<boolean> {
+        return (this.actor as any).updateProduct(id, name, category, price, stock, colorHex);
+    }
+    async deleteProduct(id: bigint): Promise<boolean> {
+        return (this.actor as any).deleteProduct(id);
+    }
+    async getOrders(): Promise<any[]> {
+        return (this.actor as any).getOrders();
+    }
+    async addOrder(customer: string, email: string, date: string, amount: string, status: string): Promise<any> {
+        return (this.actor as any).addOrder(customer, email, date, amount, status);
+    }
+    async updateOrder(id: string, customer: string, email: string, date: string, amount: string, status: string): Promise<boolean> {
+        return (this.actor as any).updateOrder(id, customer, email, date, amount, status);
+    }
+    async deleteOrder(id: string): Promise<boolean> {
+        return (this.actor as any).deleteOrder(id);
+    }
+    async getCustomers(): Promise<any[]> {
+        return (this.actor as any).getCustomers();
+    }
+    async addCustomer(name: string, email: string, phone: string, totalOrders: bigint, totalSpent: string, joinDate: string): Promise<any> {
+        return (this.actor as any).addCustomer(name, email, phone, totalOrders, totalSpent, joinDate);
+    }
+    async updateCustomer(id: bigint, name: string, email: string, phone: string, totalOrders: bigint, totalSpent: string, joinDate: string): Promise<boolean> {
+        return (this.actor as any).updateCustomer(id, name, email, phone, totalOrders, totalSpent, joinDate);
+    }
+    async deleteCustomer(id: bigint): Promise<boolean> {
+        return (this.actor as any).deleteCustomer(id);
+    }
 }
 export interface CreateActorOptions {
     agent?: Agent;
