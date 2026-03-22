@@ -131,7 +131,7 @@ export function StorefrontPage({ onBack, isPublic }: StorefrontPageProps) {
       <div className="bg-gradient-to-br from-blue-accent/10 to-transparent border-b border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 text-center">
           <h1 className="text-3xl sm:text-4xl font-700 text-foreground mb-3">
-            Katalog Produk BUMR tagleni
+            KATALOG PRODUK BUMR
           </h1>
           <p className="text-muted-foreground">
             Pilih produk dan klik untuk memesan dengan mudah
