@@ -9,7 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActor } from "@/hooks/useActor";
-import { ArrowLeft, Loader2, Package, ShoppingBag } from "lucide-react";
+import { LayoutDashboard, Loader2, Package, ShoppingBag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -26,9 +26,11 @@ const formatRp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
 interface StorefrontPageProps {
   onBack: () => void;
+  /** If true, the back button becomes "Masuk Admin" instead of "Kembali ke Admin" */
+  isPublic?: boolean;
 }
 
-export function StorefrontPage({ onBack }: StorefrontPageProps) {
+export function StorefrontPage({ onBack, isPublic }: StorefrontPageProps) {
   const { actor, isFetching: actorFetching } = useActor();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +111,8 @@ export function StorefrontPage({ onBack }: StorefrontPageProps) {
             className="gap-2"
             data-ocid="storefront.secondary_button"
           >
-            <ArrowLeft size={14} /> Kembali ke Admin
+            <LayoutDashboard size={14} />
+            {isPublic ? "Masuk Admin" : "Kembali ke Admin"}
           </Button>
         </div>
       </header>

@@ -10,8 +10,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActor } from "@/hooks/useActor";
-import { Edit2, Loader2, Package, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  Edit2,
+  ImagePlus,
+  Loader2,
+  Package,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Product = {
   id: number;
@@ -20,6 +28,7 @@ type Product = {
   price: number;
   stock: number;
   colorHex: string;
+  imageUrl: string;
 };
 
 const formatRp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
@@ -32,6 +41,33 @@ const COLORS = [
   "#ef4444",
   "#06b6d4",
 ];
+
+// Compress & resize image to max 400px wide, JPEG quality 0.65
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX_W = 400;
+      const scale = img.width > MAX_W ? MAX_W / img.width : 1;
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("canvas error"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.65));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 interface ProductsPageProps {
   isAdmin?: boolean;
@@ -46,12 +82,16 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
   const [editItem, setEditItem] = useState<Product | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [imageError, setImageError] = useState("");
   const [form, setForm] = useState({
     name: "",
     category: "",
     price: "",
     stock: "",
+    imageUrl: "",
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadProducts = useCallback(async () => {
     if (!actor) return;
@@ -65,6 +105,7 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
           price: Number(p.price),
           stock: Number(p.stock),
           colorHex: p.colorHex,
+          imageUrl: p.imageUrl ?? "",
         })),
       );
     } finally {
@@ -86,19 +127,49 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
 
   const openAdd = () => {
     setEditItem(null);
-    setForm({ name: "", category: "", price: "", stock: "" });
+    setImageFile(null);
+    setImageError("");
+    setForm({ name: "", category: "", price: "", stock: "", imageUrl: "" });
     setDialogOpen(true);
   };
 
   const openEdit = (p: Product) => {
     setEditItem(p);
+    setImageFile(null);
+    setImageError("");
     setForm({
       name: p.name,
       category: p.category,
       price: String(p.price),
       stock: String(p.stock),
+      imageUrl: p.imageUrl,
     });
     setDialogOpen(true);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageError("");
+    // 5MB original file limit
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError("Ukuran file maks 5MB");
+      return;
+    }
+    setImageFile(file);
+    try {
+      const compressed = await compressImage(file);
+      setForm((f) => ({ ...f, imageUrl: compressed }));
+    } catch {
+      setImageError("Gagal memproses gambar, coba file lain");
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImageError("");
+    setForm((f) => ({ ...f, imageUrl: "" }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSave = async () => {
@@ -114,6 +185,7 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
           BigInt(form.price),
           BigInt(form.stock),
           editItem.colorHex,
+          form.imageUrl || editItem.imageUrl,
         );
       } else {
         const newIdx = items.length;
@@ -123,6 +195,7 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
           BigInt(form.price),
           BigInt(form.stock),
           COLORS[newIdx % COLORS.length],
+          form.imageUrl,
         );
       }
       await loadProducts();
@@ -190,17 +263,27 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
             className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-card-hover transition-shadow"
             data-ocid={`products.item.${i + 1}`}
           >
-            <div
-              className="h-36 flex items-center justify-center"
-              style={{ backgroundColor: `${p.colorHex}22` }}
-            >
-              <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                style={{ backgroundColor: p.colorHex }}
-              >
-                <Package size={28} className="text-white" />
+            {p.imageUrl ? (
+              <div className="h-36 overflow-hidden">
+                <img
+                  src={p.imageUrl}
+                  alt={p.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
-            </div>
+            ) : (
+              <div
+                className="h-36 flex items-center justify-center"
+                style={{ backgroundColor: `${p.colorHex}22` }}
+              >
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                  style={{ backgroundColor: p.colorHex }}
+                >
+                  <Package size={28} className="text-white" />
+                </div>
+              </div>
+            )}
             <div className="p-4 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-600 text-foreground text-sm leading-tight">
@@ -307,6 +390,60 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
                 }
                 placeholder="0"
               />
+            </div>
+
+            {/* Image Upload */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">
+                Gambar Produk
+              </Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileChange}
+                data-ocid="products.upload_button"
+              />
+              {imageError && (
+                <p className="text-xs text-destructive mb-1.5">{imageError}</p>
+              )}
+              {form.imageUrl ? (
+                <div className="relative w-full h-36 rounded-lg overflow-hidden border border-border">
+                  <img
+                    src={form.imageUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white text-xs rounded-md px-2 py-1 flex items-center gap-1 transition-colors"
+                  >
+                    <ImagePlus size={12} /> Ganti
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-28 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
+                  data-ocid="products.dropzone"
+                >
+                  <ImagePlus size={24} />
+                  <span className="text-xs font-medium">Upload Gambar</span>
+                  <span className="text-xs opacity-60">
+                    {imageFile ? imageFile.name : "JPG, PNG, WEBP — maks 5MB"}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
           <DialogFooter className="gap-2">

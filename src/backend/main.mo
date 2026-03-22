@@ -3,7 +3,19 @@ import Nat "mo:base/Nat";
 
 actor {
 
+  // New Product type with imageUrl
   public type Product = {
+    id : Nat;
+    name : Text;
+    category : Text;
+    price : Nat;
+    stock : Nat;
+    colorHex : Text;
+    imageUrl : Text;
+  };
+
+  // Legacy type matching previous stable variable schema (without imageUrl)
+  type ProductV1 = {
     id : Nat;
     name : Text;
     category : Text;
@@ -31,7 +43,8 @@ actor {
     joinDate : Text;
   };
 
-  var products : [Product] = [
+  // Legacy stable var – reads existing on-chain data (old schema without imageUrl)
+  stable var products : [ProductV1] = [
     { id = 1; name = "Beras Premium 5kg"; category = "Sembako"; price = 75000; stock = 120; colorHex = "#3b82f6" },
     { id = 2; name = "Minyak Goreng 2L"; category = "Sembako"; price = 32000; stock = 85; colorHex = "#22c55e" },
     { id = 3; name = "Gula Pasir 1kg"; category = "Sembako"; price = 15000; stock = 200; colorHex = "#a855f7" },
@@ -39,7 +52,10 @@ actor {
     { id = 5; name = "Kopi Robusta 250g"; category = "Minuman"; price = 28000; stock = 60; colorHex = "#ef4444" },
   ];
 
-  var orders : [Order] = [
+  // New stable var for migrated / new product data
+  stable var productsV2 : [Product] = [];
+
+  stable var orders : [Order] = [
     { id = "#ORD-1"; customer = "Budi Santoso"; email = "budi@gmail.com"; date = "20 Mar 2026"; amount = "Rp 150.000"; status = "Selesai" },
     { id = "#ORD-2"; customer = "Siti Rahayu"; email = "siti@gmail.com"; date = "19 Mar 2026"; amount = "Rp 85.000"; status = "Diproses" },
     { id = "#ORD-3"; customer = "Agus Wijaya"; email = "agus@gmail.com"; date = "18 Mar 2026"; amount = "Rp 210.000"; status = "Selesai" },
@@ -50,7 +66,7 @@ actor {
     { id = "#ORD-8"; customer = "Maya Indah"; email = "maya@gmail.com"; date = "15 Mar 2026"; amount = "Rp 60.000"; status = "Diproses" },
   ];
 
-  var customers : [Customer] = [
+  stable var customers : [Customer] = [
     { id = 1; name = "Budi Santoso"; email = "budi@gmail.com"; phone = "081234567890"; totalOrders = 5; totalSpent = "Rp 750.000"; joinDate = "10 Jan 2025" },
     { id = 2; name = "Siti Rahayu"; email = "siti@gmail.com"; phone = "082345678901"; totalOrders = 3; totalSpent = "Rp 320.000"; joinDate = "15 Feb 2025" },
     { id = 3; name = "Agus Wijaya"; email = "agus@gmail.com"; phone = "083456789012"; totalOrders = 8; totalSpent = "Rp 1.450.000"; joinDate = "5 Jan 2025" },
@@ -58,30 +74,50 @@ actor {
     { id = 5; name = "Rudi Hartono"; email = "rudi@gmail.com"; phone = "085678901234"; totalOrders = 12; totalSpent = "Rp 2.100.000"; joinDate = "3 Des 2024" },
   ];
 
-  var nextProductId : Nat = 6;
-  var nextCustomerId : Nat = 6;
-  var nextOrderSeq : Nat = 9;
+  stable var nextProductId : Nat = 6;
+  stable var nextCustomerId : Nat = 6;
+  stable var nextOrderSeq : Nat = 9;
+
+  // Runtime product list (populated in postupgrade)
+  var runtimeProducts : [Product] = [];
+
+  // Migrate legacy products to new schema on upgrade
+  system func postupgrade() {
+    if (productsV2.size() > 0) {
+      runtimeProducts := productsV2;
+    } else if (products.size() > 0) {
+      runtimeProducts := Array.map(products, func(p : ProductV1) : Product {
+        { id = p.id; name = p.name; category = p.category; price = p.price; stock = p.stock; colorHex = p.colorHex; imageUrl = "" }
+      });
+      products := [];
+    };
+  };
+
+  // Persist runtime products before upgrade
+  system func preupgrade() {
+    productsV2 := runtimeProducts;
+  };
 
   // Products
 
   public query func getProducts() : async [Product] {
-    products
+    runtimeProducts
   };
 
-  public func addProduct(name : Text, category : Text, price : Nat, stock : Nat, colorHex : Text) : async Product {
-    let p : Product = { id = nextProductId; name; category; price; stock; colorHex };
-    products := Array.append(products, [p]);
+  public func addProduct(name : Text, category : Text, price : Nat, stock : Nat, colorHex : Text, imageUrl : Text) : async Product {
+    let p : Product = { id = nextProductId; name; category; price; stock; colorHex; imageUrl };
+    runtimeProducts := Array.append(runtimeProducts, [p]);
     nextProductId += 1;
     p
   };
 
-  public func updateProduct(id : Nat, name : Text, category : Text, price : Nat, stock : Nat, colorHex : Text) : async Bool {
-    let found = Array.find(products, func(p : Product) : Bool { p.id == id });
+  public func updateProduct(id : Nat, name : Text, category : Text, price : Nat, stock : Nat, colorHex : Text, imageUrl : Text) : async Bool {
+    let found = Array.find(runtimeProducts, func(p : Product) : Bool { p.id == id });
     switch (found) {
       case null { false };
       case (?_) {
-        products := Array.map(products, func(p : Product) : Product {
-          if (p.id == id) { { id; name; category; price; stock; colorHex } } else { p }
+        runtimeProducts := Array.map(runtimeProducts, func(p : Product) : Product {
+          if (p.id == id) { { id; name; category; price; stock; colorHex; imageUrl } } else { p }
         });
         true
       };
@@ -89,9 +125,9 @@ actor {
   };
 
   public func deleteProduct(id : Nat) : async Bool {
-    let before = products.size();
-    products := Array.filter(products, func(p : Product) : Bool { p.id != id });
-    products.size() < before
+    let before = runtimeProducts.size();
+    runtimeProducts := Array.filter(runtimeProducts, func(p : Product) : Bool { p.id != id });
+    runtimeProducts.size() < before
   };
 
   // Orders

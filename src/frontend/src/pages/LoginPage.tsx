@@ -1,14 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { useState } from "react";
 
 interface LoginPageProps {
   onLogin: () => void;
+  onBackToStore?: () => void;
 }
 
-export function LoginPage({ onLogin }: LoginPageProps) {
+export function LoginPage({ onLogin, onBackToStore }: LoginPageProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -121,6 +122,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               {loading ? <Loader2 size={15} className="animate-spin" /> : null}
               {loading ? "Memverifikasi..." : "Masuk"}
             </Button>
+
+            {onBackToStore && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full gap-2 text-muted-foreground"
+                onClick={onBackToStore}
+              >
+                <ArrowLeft size={14} /> Kembali ke Toko
+              </Button>
+            )}
           </form>
         </div>
 

@@ -35,22 +35,47 @@ function loadSettings(): AppSettings {
   }
 }
 
+type AppView = "storefront" | "login" | "dashboard";
+
 export default function App() {
+  const [view, setView] = useState<AppView>("storefront");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeNav, setActiveNav] = useState("dashboard");
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [collapsed, setCollapsed] = useState(settings.sidebarDefaultCollapsed);
-  const [storefrontMode, setStorefrontMode] = useState(false);
 
   const handleSaveSettings = (s: AppSettings) => {
     localStorage.setItem("appSettings", JSON.stringify(s));
     setSettings(s);
   };
 
-  if (!isLoggedIn) {
+  // Public storefront -- accessible without login
+  if (view === "storefront") {
     return (
       <>
-        <LoginPage onLogin={() => setIsLoggedIn(true)} />
+        <StorefrontPage
+          onBack={() => {
+            // No "back" when storefront is the home -- show admin login instead
+            setView("login");
+          }}
+          isPublic
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Admin login page
+  if (view === "login" || !isLoggedIn) {
+    return (
+      <>
+        <LoginPage
+          onLogin={() => {
+            setIsLoggedIn(true);
+            setView("dashboard");
+          }}
+          onBackToStore={() => setView("storefront")}
+        />
         <Toaster />
       </>
     );
@@ -58,21 +83,10 @@ export default function App() {
 
   const sidebarWidth = collapsed ? 64 : 256;
 
-  if (storefrontMode) {
-    return (
-      <>
-        <StorefrontPage onBack={() => setStorefrontMode(false)} />
-        <Toaster />
-      </>
-    );
-  }
-
   const renderPage = () => {
     switch (activeNav) {
       case "dashboard":
-        return (
-          <DashboardPage onOpenStorefront={() => setStorefrontMode(true)} />
-        );
+        return <DashboardPage onOpenStorefront={() => setView("storefront")} />;
       case "analytics":
         return <AnalyticsPage />;
       case "orders":
@@ -106,8 +120,11 @@ export default function App() {
       >
         <Header
           activeNav={activeNav}
-          onOpenStorefront={() => setStorefrontMode(true)}
-          onLogout={() => setIsLoggedIn(false)}
+          onOpenStorefront={() => setView("storefront")}
+          onLogout={() => {
+            setIsLoggedIn(false);
+            setView("storefront");
+          }}
           settings={settings}
         />
 
