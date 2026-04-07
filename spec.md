@@ -1,49 +1,24 @@
 # Qtaada Dashboard
 
 ## Current State
-- Dashboard (DashboardPage.tsx) tidak menerima props `settings` sehingga tidak menampilkan nama admin yang diinput di pengaturan
-- Header.tsx dan Sidebar.tsx sudah menerima `settings` dan menampilkan nama dari settings dengan benar
-- StatsCards.tsx menggunakan data statis dari mockData, tidak dari backend
-- DashboardPage tidak menampilkan sambutan dengan nama yang sesuai dari settings
-- Halaman Pesanan, Produk, dan Pelanggan sudah memiliki props `isAdmin` dan fungsi tambah/edit/hapus sudah ada
-- App.tsx sudah mengoper `isLoggedIn` sebagai `isAdmin` ke semua halaman
-- Semua data tersimpan di backend (persistent)
+Admin dashboard dengan backend Motoko dan frontend React. Memiliki halaman Produk, Pesanan, Pelanggan, dan Pengaturan. Backend sudah mendukung `demoLink` dan `imageUrl` pada Product, namun IDL factory (`backend.did.js`) dan interface (`backend.ts`, `backend.d.ts`) masih menggunakan definisi lama tanpa `demoLink`.
 
 ## Requested Changes (Diff)
 
 ### Add
-- DashboardPage perlu menerima prop `settings` agar bisa menampilkan nama admin yang diinput di pengaturan
-- Dashboard perlu menampilkan greeting/sambutan dengan nama dari settings (sesuai dengan yang diinput di menu Pengaturan)
-- Tambahkan statistik live di dashboard: hitung total pesanan, total produk, dan total pelanggan langsung dari backend
+- Tidak ada penambahan fitur baru.
 
 ### Modify
-- DashboardPage.tsx: tambah prop `settings?: AppSettings` dan tampilkan greeting "Selamat datang kembali, {displayName}" di bagian atas dashboard
-- DashboardPage.tsx: gunakan useActor untuk load data live dari backend (getOrders, getProducts, getCustomers) dan tampilkan jumlah di stats cards yang relevan (Total Pesanan, Total Produk, Total Pelanggan)
-- App.tsx: teruskan `settings` ke DashboardPage
-- StatsCards.tsx: terima props `liveData` opsional untuk menampilkan angka live dari backend (total pesanan, total produk, total pelanggan), jika ada gunakan angka live, jika tidak gunakan mock data
-- Sidebar.tsx: Pastikan logout button di sidebar berfungsi (saat ini tidak ada handler onLogout)
-- App.tsx: Tambahkan onLogout handler ke Sidebar
+- `src/frontend/src/declarations/backend.did.js`: Tambahkan field `demoLink` ke IDL Product record dan argumen `addProduct`/`updateProduct`.
+- `src/frontend/src/backend.ts`: Update interface dan implementasi `addProduct`/`updateProduct` agar menyertakan `demoLink`.
+- `src/frontend/src/backend.d.ts`: Update type `backendInterface` agar menyertakan `demoLink`.
+- `src/frontend/backend.d.ts`: Update `_SERVICE` Product type agar menyertakan `demoLink`.
 
 ### Remove
-- Tidak ada yang dihapus
+- Tidak ada penghapusan.
 
 ## Implementation Plan
-1. Update DashboardPage.tsx:
-   - Tambah prop `settings?: AppSettings`
-   - Tambah prop `isAdmin?: boolean`
-   - Tampilkan greeting dengan `displayName` dari settings di bagian atas halaman
-   - Gunakan useActor untuk fetch data live (getOrders, getProducts, getCustomers)
-   - Hitung total pesanan, total produk, total pelanggan
-   - Kirim data live ke StatsCards
-
-2. Update StatsCards.tsx:
-   - Tambah optional props `totalOrders`, `totalProducts`, `totalCustomers` (number)
-   - Jika props hadir, tampilkan angka live; jika tidak, gunakan mock data
-
-3. Update App.tsx:
-   - Teruskan `settings` ke DashboardPage
-   - Teruskan `onLogout` handler ke Sidebar
-
-4. Update Sidebar.tsx:
-   - Tambah prop `onLogout?: () => void`
-   - Sambungkan logout button di sidebar ke handler ini
+1. Update `backend.did.js` IDL factory -- tambahkan `demoLink: IDL.Text` ke Product record dan `IDL.Text` ke argumen addProduct/updateProduct.
+2. Update `backend.ts` -- tambahkan `demoLink` ke interface dan class method addProduct/updateProduct.
+3. Update `backend.d.ts` (kedua file) -- sinkronkan type definitions.
+4. Validasi build.

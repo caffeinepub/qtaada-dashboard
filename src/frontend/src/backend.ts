@@ -92,8 +92,8 @@ export class ExternalBlob {
 export interface backendInterface {
     _initializeAccessControlWithSecret(token: string): Promise<void>;
     getProducts(): Promise<any[]>;
-    addProduct(name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string): Promise<any>;
-    updateProduct(id: bigint, name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string): Promise<boolean>;
+    addProduct(name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string, demoLink: string): Promise<any>;
+    updateProduct(id: bigint, name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string, demoLink: string): Promise<boolean>;
     deleteProduct(id: bigint): Promise<boolean>;
     getOrders(): Promise<any[]>;
     addOrder(customer: string, email: string, date: string, amount: string, status: string): Promise<any>;
@@ -113,11 +113,11 @@ export class Backend implements backendInterface {
     async getProducts(): Promise<any[]> {
         return (this.actor as any).getProducts();
     }
-    async addProduct(name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string): Promise<any> {
-        return (this.actor as any).addProduct(name, category, price, stock, colorHex, imageUrl);
+    async addProduct(name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string, demoLink: string): Promise<any> {
+        return (this.actor as any).addProduct(name, category, price, stock, colorHex, imageUrl, demoLink);
     }
-    async updateProduct(id: bigint, name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string): Promise<boolean> {
-        return (this.actor as any).updateProduct(id, name, category, price, stock, colorHex, imageUrl);
+    async updateProduct(id: bigint, name: string, category: string, price: bigint, stock: bigint, colorHex: string, imageUrl: string, demoLink: string): Promise<boolean> {
+        return (this.actor as any).updateProduct(id, name, category, price, stock, colorHex, imageUrl, demoLink);
     }
     async deleteProduct(id: bigint): Promise<boolean> {
         return (this.actor as any).deleteProduct(id);
