@@ -47,13 +47,13 @@ const COLORS = [
   "#06b6d4",
 ];
 
-// Compress & resize image to max 800px wide, JPEG quality 0.8 — for local preview only
-function compressImage(file: File): Promise<string> {
+// Compress & resize image to Uint8Array for blob storage upload
+function compressToBytes(file: File): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const MAX_W = 800;
+      const MAX_W = 1200;
       const scale = img.width > MAX_W ? MAX_W / img.width : 1;
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
@@ -67,11 +67,33 @@ function compressImage(file: File): Promise<string> {
       }
       ctx.drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.8));
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("blob error"));
+            return;
+          }
+          blob.arrayBuffer().then((buf) => resolve(new Uint8Array(buf)));
+        },
+        "image/jpeg",
+        0.85,
+      );
     };
     img.onerror = reject;
     img.src = url;
   });
+}
+
+async function createStorageClient(): Promise<StorageClient> {
+  const config = await loadConfig();
+  const agent = new HttpAgent({ host: config.backend_host });
+  return new StorageClient(
+    config.bucket_name,
+    config.storage_gateway_url,
+    config.backend_canister_id,
+    config.project_id,
+    agent,
+  );
 }
 
 interface ProductsPageProps {
@@ -183,29 +205,13 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
     // Upload to blob storage
     setUploading(true);
     try {
-      // Compress for upload
-      const compressed = await compressImage(file);
-      // Convert base64 data URL to Uint8Array
-      const base64 = compressed.split(",")[1];
-      const binaryStr = atob(base64);
-      const bytes = new Uint8Array(binaryStr.length);
-      for (let i = 0; i < binaryStr.length; i++) {
-        bytes[i] = binaryStr.charCodeAt(i);
-      }
-
-      const config = await loadConfig();
-      const agent = new HttpAgent({ host: config.backend_host });
-      const client = new StorageClient(
-        config.bucket_name,
-        config.storage_gateway_url,
-        config.backend_canister_id,
-        config.project_id,
-        agent,
-      );
+      const bytes = await compressToBytes(file);
+      const client = await createStorageClient();
       const { hash } = await client.putFile(bytes);
       const url = await client.getDirectURL(hash);
       setForm((f) => ({ ...f, imageUrl: url, imagePreview: url }));
-    } catch {
+    } catch (err) {
+      console.error("Upload error:", err);
       setImageError("Gagal mengunggah gambar, coba lagi");
       setForm((f) => ({ ...f, imagePreview: "", imageUrl: "" }));
     } finally {
@@ -538,7 +544,6 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
                   }
                   placeholder="https://demo.contoh.com"
                   className="pl-9"
-                  data-ocid="products.input"
                 />
               </div>
             </div>

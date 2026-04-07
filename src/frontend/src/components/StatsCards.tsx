@@ -40,13 +40,42 @@ const colorConfig: Record<string, { bg: string; icon: string; ring: string }> =
     },
   };
 
-export function StatsCards() {
+interface StatsCardsProps {
+  totalOrders?: number;
+  totalProducts?: number;
+  totalCustomers?: number;
+}
+
+export function StatsCards({
+  totalOrders,
+  totalProducts,
+  totalCustomers,
+}: StatsCardsProps) {
+  const getLiveValue = (cardId: string, fallback: string): string => {
+    if (cardId === "orders" && totalOrders !== undefined) {
+      return totalOrders.toLocaleString("id-ID");
+    }
+    if (cardId === "users" && totalCustomers !== undefined) {
+      return totalCustomers.toLocaleString("id-ID");
+    }
+    if (cardId === "products" && totalProducts !== undefined) {
+      return totalProducts.toLocaleString("id-ID");
+    }
+    return fallback;
+  };
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {statsCards.map((card, i) => {
         const Icon = iconMap[card.icon];
         const colors = colorConfig[card.color];
         const isUp = card.trend === "up";
+        const displayValue = getLiveValue(card.id, card.value);
+        const isLive =
+          (card.id === "orders" && totalOrders !== undefined) ||
+          (card.id === "users" && totalCustomers !== undefined) ||
+          (card.id === "products" && totalProducts !== undefined);
+
         return (
           <motion.div
             key={card.id}
@@ -78,9 +107,16 @@ export function StatsCards() {
               </span>
             </div>
             <div>
-              <p className="text-2xl font-display font-700 text-foreground">
-                {card.value}
-              </p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-2xl font-display font-700 text-foreground">
+                  {displayValue}
+                </p>
+                {isLive && (
+                  <span className="text-xs font-500 text-success bg-success/10 px-1.5 py-0.5 rounded-full">
+                    live
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {card.label}
               </p>

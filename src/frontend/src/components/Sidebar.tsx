@@ -34,6 +34,7 @@ interface SidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   settings?: AppSettings;
+  onLogout?: () => void;
 }
 
 export function Sidebar({
@@ -42,6 +43,7 @@ export function Sidebar({
   collapsed,
   onToggleCollapse,
   settings,
+  onLogout,
 }: SidebarProps) {
   const brandName = settings?.brandName ?? "BUMR tagleni";
   const brandSubtitle =
@@ -147,17 +149,31 @@ export function Sidebar({
               size="icon"
               className="w-7 h-7 text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10"
               data-ocid="logout.button"
+              onClick={onLogout}
+              title="Keluar"
             >
               <LogOut size={14} />
             </Button>
           </div>
         ) : (
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-1">
             <Avatar className="w-8 h-8">
               <AvatarFallback className="bg-blue-accent text-white text-xs font-600">
                 {initial}
               </AvatarFallback>
             </Avatar>
+            {onLogout && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-7 h-7 text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                data-ocid="logout.button"
+                onClick={onLogout}
+                title="Keluar"
+              >
+                <LogOut size={12} />
+              </Button>
+            )}
           </div>
         )}
       </div>

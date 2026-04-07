@@ -49,6 +49,11 @@ export default function App() {
     setSettings(s);
   };
 
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setView("storefront");
+  };
+
   // Public storefront -- accessible without login
   if (view === "storefront") {
     return (
@@ -86,7 +91,13 @@ export default function App() {
   const renderPage = () => {
     switch (activeNav) {
       case "dashboard":
-        return <DashboardPage onOpenStorefront={() => setView("storefront")} />;
+        return (
+          <DashboardPage
+            onOpenStorefront={() => setView("storefront")}
+            settings={settings}
+            isAdmin={isLoggedIn}
+          />
+        );
       case "analytics":
         return <AnalyticsPage />;
       case "orders":
@@ -112,6 +123,7 @@ export default function App() {
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((c) => !c)}
         settings={settings}
+        onLogout={handleLogout}
       />
 
       <div
@@ -121,10 +133,7 @@ export default function App() {
         <Header
           activeNav={activeNav}
           onOpenStorefront={() => setView("storefront")}
-          onLogout={() => {
-            setIsLoggedIn(false);
-            setView("storefront");
-          }}
+          onLogout={handleLogout}
           settings={settings}
         />
 
