@@ -116,6 +116,32 @@ async function maybeLoadMockBackend(): Promise<backendInterface | null> {
   }
 }
 
+// Singleton storage client cache to reuse the same agent across the app
+let storageClientCache: StorageClient | null = null;
+
+export async function getStorageClient(): Promise<StorageClient> {
+  if (storageClientCache) {
+    return storageClientCache;
+  }
+  const config = await loadConfig();
+  const agent = new HttpAgent({
+    host: config.backend_host,
+  });
+  if (config.backend_host?.includes("localhost")) {
+    await agent.fetchRootKey().catch((err) => {
+      console.warn("Unable to fetch root key.", err);
+    });
+  }
+  storageClientCache = new StorageClient(
+    config.bucket_name,
+    config.storage_gateway_url,
+    config.backend_canister_id,
+    config.project_id,
+    agent,
+  );
+  return storageClientCache;
+}
+
 export async function createActorWithConfig(
   options?: CreateActorOptions,
 ): Promise<backendInterface> {

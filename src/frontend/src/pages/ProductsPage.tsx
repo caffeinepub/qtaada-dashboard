@@ -9,10 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { loadConfig } from "@/config";
+import { getStorageClient } from "@/config";
 import { useActor } from "@/hooks/useActor";
-import { StorageClient } from "@/utils/StorageClient";
-import { HttpAgent } from "@icp-sdk/core/agent";
 import {
   Edit2,
   ImagePlus,
@@ -82,18 +80,6 @@ function compressToBytes(file: File): Promise<Uint8Array> {
     img.onerror = reject;
     img.src = url;
   });
-}
-
-async function createStorageClient(): Promise<StorageClient> {
-  const config = await loadConfig();
-  const agent = new HttpAgent({ host: config.backend_host });
-  return new StorageClient(
-    config.bucket_name,
-    config.storage_gateway_url,
-    config.backend_canister_id,
-    config.project_id,
-    agent,
-  );
 }
 
 interface ProductsPageProps {
@@ -202,17 +188,21 @@ export function ProductsPage({ isAdmin }: ProductsPageProps) {
     const localPreview = URL.createObjectURL(file);
     setForm((f) => ({ ...f, imagePreview: localPreview, imageUrl: "" }));
 
-    // Upload to blob storage
+    // Upload to blob storage using the shared, correctly configured client
     setUploading(true);
     try {
       const bytes = await compressToBytes(file);
-      const client = await createStorageClient();
+      const client = await getStorageClient();
       const { hash } = await client.putFile(bytes);
       const url = await client.getDirectURL(hash);
       setForm((f) => ({ ...f, imageUrl: url, imagePreview: url }));
     } catch (err) {
       console.error("Upload error:", err);
-      setImageError("Gagal mengunggah gambar, coba lagi");
+      setImageError(
+        err instanceof Error
+          ? `Gagal mengunggah: ${err.message}`
+          : "Gagal mengunggah gambar, coba lagi",
+      );
       setForm((f) => ({ ...f, imagePreview: "", imageUrl: "" }));
     } finally {
       setUploading(false);
